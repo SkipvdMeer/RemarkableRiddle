@@ -1,0 +1,43 @@
+# riddle — configuration. Every key is optional; these are the defaults.
+
+# OpenAI vision model and endpoint.
+model = "gpt-4o-mini"
+engine_base_url = "https://api.openai.com/v1"
+# api_key = "sk-..."            # or set OPENAI_API_KEY in the environment
+# prompt_path = "diary.txt"     # override the built-in Tom Riddle persona
+
+# --- when does the ink sink in? ---
+pause_secs = 2.5                # pen away from the page this long -> send
+tap_trigger = true              # a finger tap in the corner also sends
+corner = "top-right"            # top-right | top-left | bottom-right | bottom-left
+corner_size = 0.12              # corner hot-zone, fraction of the screen
+
+# --- the diary's handwriting ---
+reply_size_px = 66.0            # handwriting size (page is 1404 x 1872 px)
+margin_px = 110.0               # left/right page margins for the reply
+linger_base_secs = 5.0          # reply stays base + per_char * length seconds
+linger_per_char_secs = 0.07
+fade_reply = true               # false: answers remain in the notebook
+
+# --- enforce the diary's pen tool ---
+force_pen_tool = true           # tap the writing-tool menu before diary writing
+tool_menu_tap_x = 58.0          # toolbar writing-tool icon
+tool_menu_tap_y = 170.0
+pen_tool_tap_x = 220.0          # Ballpoint pen option in the opened menu
+pen_tool_tap_y = 170.0
+tool_tap_delay_ms = 180
+
+# --- safety: only animate notebooks in this xochitl folder ---
+allowed_folder = "Riddle"       # empty string disables this guard
+allow_subfolders = true
+metadata_dir = "/home/root/.local/share/remarkable/xochitl"
+
+# --- pacing (milliseconds per pen movement) ---
+write_pace_ms = 0               # bigger = slower, more deliberate writing (0 = fastest)
+erase_pace_ms = 1               # speed of the vanishing
+
+# --- hardware overrides (auto-discovered by name when unset) ---
+# pen_device = "/dev/input/event1"
+# touch_device = "/dev/input/event2"
+touch_invert_x = false
+touch_invert_y = true           # rM2 touch panel y is bottom-up
