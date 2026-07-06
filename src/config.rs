@@ -68,7 +68,7 @@ impl Default for Config {
             engine_base_url: "https://api.openai.com/v1".into(),
             api_key: None,
             prompt_path: None,
-            pause_secs: 2s,
+            pause_secs: 2.0,
             tap_trigger: true,
             corner: "top-right".into(),
             corner_size: 0.12,

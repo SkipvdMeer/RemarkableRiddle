@@ -144,6 +144,13 @@ impl Pen {
         pace: Duration,
         step_px: f32,
     ) -> Result<()> {
+        // Wait our turn: never begin injecting while the writer's pen is
+        // at the page. Two hands on one quill draws wild zigzags between
+        // the two positions (and we cannot see the real pen mid-injection
+        // — its events are indistinguishable from our own echo).
+        while self.shared.pen_busy() {
+            thread::sleep(Duration::from_millis(60));
+        }
         self.shared.injecting.store(true, Ordering::Relaxed);
         let _guard = InjectGuard(self.shared.clone());
 

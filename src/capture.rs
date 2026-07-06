@@ -65,6 +65,15 @@ impl Shared {
         !st.strokes.is_empty()
     }
 
+    /// True while the writer's pen is at (or hovering near) the page, or
+    /// was within the last moment. The invisible hand must stay out of
+    /// the way: injecting while a real pen is down makes xochitl draw
+    /// wild zigzags between the two positions.
+    pub fn pen_busy(&self) -> bool {
+        let st = self.state.lock().unwrap();
+        st.pen_near || st.last_pen_event.elapsed().as_secs_f32() < 0.3
+    }
+
     /// True when there is ink and the pen has been fully away from the
     /// screen for `pause_secs`.
     pub fn writer_paused(&self, pause_secs: f32) -> bool {
