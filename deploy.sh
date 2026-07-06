@@ -14,9 +14,13 @@ cargo zigbuild --release --target "$TARGET"
 
 ssh "$HOST" "mkdir -p /home/root/riddle"
 scp "target/$TARGET/release/riddle" "$HOST:/home/root/riddle/"
-# Never overwrite the tablet's config — it may hold the API key and tuning.
+# Never overwrite the tablet's config — it may hold local tuning.
 if ssh "$HOST" "test ! -e /home/root/riddle/riddle.toml"; then
   scp riddle.toml "$HOST:/home/root/riddle/"
+fi
+# The API key lives in .env (gitignored), loaded by the systemd service.
+if [ -f .env ] && ssh "$HOST" "test ! -e /home/root/riddle/.env"; then
+  scp .env "$HOST:/home/root/riddle/"
 fi
 
 echo

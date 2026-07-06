@@ -7,7 +7,7 @@ engine_base_url = "https://api.openai.com/v1"
 # prompt_path = "diary.txt"     # override the built-in Tom Riddle persona
 
 # --- when does the ink sink in? ---
-pause_secs = 2.5                # pen away from the page this long -> send
+pause_secs = 2.0                # pen away from the page this long -> send
 tap_trigger = true              # a finger tap in the corner also sends
 corner = "top-right"            # top-right | top-left | bottom-right | bottom-left
 corner_size = 0.12              # corner hot-zone, fraction of the screen
@@ -16,7 +16,7 @@ corner_size = 0.12              # corner hot-zone, fraction of the screen
 reply_size_px = 66.0            # handwriting size (page is 1404 x 1872 px)
 margin_px = 110.0               # left/right page margins for the reply
 linger_base_secs = 5.0          # reply stays base + per_char * length seconds
-linger_per_char_secs = 0.07
+linger_per_char_secs = 0.0
 fade_reply = true               # false: answers remain in the notebook
 
 # --- enforce the diary's pen tool ---

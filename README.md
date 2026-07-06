@@ -39,6 +39,13 @@ rustup target add armv7-unknown-linux-musleabihf
 The SSH password is on the tablet under **Settings → Help → Copyrights and licenses**
 (bottom of the page, "GPLv3 Compliance").
 
+## API key
+
+Copy `.env.example` to `.env` and put your OpenAI key in it. The file is gitignored;
+`deploy.sh` installs it on the tablet (first deploy only), where the systemd service
+loads it via `EnvironmentFile`. Never put the key in `riddle.toml` — that file is
+committed as documentation.
+
 ## Run
 
 On the tablet, with a notebook page open and a pen tool selected:
@@ -46,7 +53,7 @@ On the tablet, with a notebook page open and a pen tool selected:
 ```sh
 ssh root@<tablet-ip>
 cd /home/root/riddle
-export OPENAI_API_KEY=sk-...
+export $(cat .env)   # or: export OPENAI_API_KEY=sk-...
 ./riddle
 ```
 

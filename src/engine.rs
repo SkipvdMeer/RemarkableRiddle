@@ -62,7 +62,7 @@ impl Engine {
         let body = json!({
             "model": self.model,
             "messages": messages,
-            "max_tokens": 400,
+            "max_tokens": 700,
             "response_format": {"type": "json_object"}
         });
 
@@ -91,10 +91,113 @@ impl Engine {
             .ok_or_else(|| anyhow!("unexpected API response shape: {value}"))?;
 
         // The model is instructed to answer with {"transcription", "reply"};
-        // if it misbehaves, treat the whole message as the reply.
-        Ok(serde_json::from_str::<Reply>(content).unwrap_or(Reply {
-            transcription: String::new(),
-            reply: content.trim().to_string(),
-        }))
+        // if it misbehaves, salvage the reply rather than writing raw JSON
+        // onto the page in ink.
+        Ok(extract_reply(content))
+    }
+}
+
+/// Parse the model's answer defensively: well-formed JSON first, then
+/// fence-stripped JSON, then a hand salvage of the "reply" string (which
+/// also recovers from JSON truncated mid-string by max_tokens), and only
+/// as a last resort the whole content with JSON punctuation shaved off.
+fn extract_reply(content: &str) -> Reply {
+    let trimmed = content.trim();
+    let unfenced = trimmed
+        .strip_prefix("```json")
+        .or_else(|| trimmed.strip_prefix("```"))
+        .map(|s| s.trim_end_matches("```").trim())
+        .unwrap_or(trimmed);
+
+    if let Ok(r) = serde_json::from_str::<Reply>(unfenced) {
+        return r;
+    }
+    if let Some(reply) = extract_json_string(unfenced, "reply") {
+        return Reply {
+            transcription: extract_json_string(unfenced, "transcription").unwrap_or_default(),
+            reply,
+        };
+    }
+    Reply {
+        transcription: String::new(),
+        reply: unfenced
+            .trim_matches(|c| c == '{' || c == '}' || c == '"' || c == '`')
+            .trim()
+            .to_string(),
+    }
+}
+
+/// Pull the string value of `key` out of JSON-ish text, tolerating a
+/// missing closing quote (truncation). JSON escapes are unescaped; \n and
+/// \t become spaces — the quill writes a single flowing paragraph.
+fn extract_json_string(s: &str, key: &str) -> Option<String> {
+    let kpos = s.find(&format!("\"{key}\""))?;
+    let rest = &s[kpos + key.len() + 2..];
+    let rest = rest[rest.find(':')? + 1..].trim_start();
+    let rest = rest.strip_prefix('"')?;
+    let mut out = String::new();
+    let mut chars = rest.chars();
+    while let Some(c) = chars.next() {
+        match c {
+            '"' => break,
+            '\\' => match chars.next() {
+                Some('n') | Some('t') | Some('r') => out.push(' '),
+                Some('u') => {
+                    let hex: String = chars.by_ref().take(4).collect();
+                    if let Some(ch) = u32::from_str_radix(&hex, 16).ok().and_then(char::from_u32)
+                    {
+                        out.push(ch);
+                    }
+                }
+                Some(other) => out.push(other),
+                None => break,
+            },
+            _ => out.push(c),
+        }
+    }
+    let out = out.trim().to_string();
+    (!out.is_empty()).then_some(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_clean_json() {
+        let r = extract_reply(r#"{"transcription": "hoi", "reply": "Goedendag."}"#);
+        assert_eq!(r.reply, "Goedendag.");
+        assert_eq!(r.transcription, "hoi");
+    }
+
+    #[test]
+    fn parses_fenced_json() {
+        let r = extract_reply("```json\n{\"transcription\": \"hi\", \"reply\": \"Hello.\"}\n```");
+        assert_eq!(r.reply, "Hello.");
+    }
+
+    #[test]
+    fn salvages_truncated_json() {
+        let r = extract_reply(r#"{"transcription": "a very long page", "reply": "The diary rememb"#);
+        assert_eq!(r.reply, "The diary rememb");
+        assert_eq!(r.transcription, "a very long page");
+    }
+
+    #[test]
+    fn keeps_valid_json_reply_verbatim() {
+        let r = extract_reply(r#"{"transcription": "x", "reply": "One.\nTwo \"quoted\"."}"#);
+        assert_eq!(r.reply, "One.\nTwo \"quoted\".");
+    }
+
+    #[test]
+    fn salvage_unescapes_and_flattens_newlines() {
+        let r = extract_reply(r#"{"transcription": "x", "reply": "One.\nTwo \"quoted\""#);
+        assert_eq!(r.reply, "One. Two \"quoted\"");
+    }
+
+    #[test]
+    fn falls_back_to_plain_text() {
+        let r = extract_reply("Just a plain sentence.");
+        assert_eq!(r.reply, "Just a plain sentence.");
     }
 }

@@ -306,16 +306,23 @@ impl Pen {
     /// full-height eraser column glides from the left edge to the right,
     /// never lifting, so everything in the band vanishes behind a curtain
     /// moving steadily across the page.
-    pub fn erase_sweep(&mut self, region: crate::geom::Rect, pace: Duration) -> Result<()> {
+    pub fn erase_sweep(&mut self, region: crate::geom::Rect) -> Result<()> {
         /// Adjacent columns overlap within the eraser's radius, so the
         /// sweep leaves no gaps between passes.
-        const COLUMN_SPACING_PX: f32 = 9.0;
+        const COLUMN_SPACING_PX: f32 = 11.0;
         const ERASE_STEP_PX: f32 = 12.0;
-        let vanish_pace = pace.max(Duration::from_millis(1));
+        /// The wipe front crosses the page at this constant speed whatever
+        /// the height of the band — a three-line answer vanishes at the
+        /// same visible pace as a one-line question. Point pacing is
+        /// derived from it: taller columns get faster points.
+        const FRONT_PX_PER_SEC: f32 = 420.0;
 
         if region.right <= region.left || region.bottom <= region.top {
             return Ok(());
         }
+        let pts_per_col = ((region.bottom - region.top) / ERASE_STEP_PX).ceil().max(1.0);
+        let col_secs = COLUMN_SPACING_PX / FRONT_PX_PER_SEC;
+        let vanish_pace = Duration::from_secs_f32((col_secs / pts_per_col).clamp(0.0002, 0.005));
         let cols = ((region.right - region.left) / COLUMN_SPACING_PX).ceil() as usize;
         let mut path = Vec::with_capacity((cols + 1) * 2);
         for i in 0..=cols {

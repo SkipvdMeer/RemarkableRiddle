@@ -185,7 +185,7 @@ fn run(cfg: Config) -> Result<()> {
             "  wiping x {:.0}..{:.0}, y {:.0}..{:.0}",
             wipe.left, wipe.right, wipe.top, wipe.bottom
         );
-        session.pen.erase_sweep(wipe, erase_pace)?;
+        session.pen.erase_sweep(wipe)?;
         let dots_at = (
             user_bbox.left.clamp(cfg.margin_px, SCREEN_W - 300.0),
             (user_bbox.top + 20.0).clamp(80.0, SCREEN_H - 160.0),
@@ -214,7 +214,7 @@ fn run(cfg: Config) -> Result<()> {
         println!("It answers: {}", reply.reply);
 
         // Lay the answer out where the writer's words used to be.
-        let text = truncate_words(&reply.reply, 240);
+        let text = truncate_words(&tidy_reply(&reply.reply), 240);
         let placed = place_reply(&script, &text, &cfg, user_bbox);
 
         session.pen.write_polylines(&placed, write_pace)?;
@@ -236,7 +236,7 @@ fn run(cfg: Config) -> Result<()> {
             // The answer fades exactly like the question: a full-height
             // curtain sweeping left to right over the padded reply area.
             if let Some(bbox) = polylines_bbox(&placed) {
-                session.pen.erase_sweep(wipe_region(bbox), erase_pace)?;
+                session.pen.erase_sweep(wipe_region(bbox))?;
             }
         }
         // Discard anything the pen reader picked up while we were busy.
@@ -281,6 +281,12 @@ fn dot_polyline(cx: f32, cy: f32) -> Vec<(f32, f32)> {
             (cx + r * a.cos(), cy + r * a.sin())
         })
         .collect()
+}
+
+/// One flowing paragraph: newlines and runs of whitespace collapse to
+/// single spaces, so the quill never writes ragged gaps mid-sentence.
+fn tidy_reply(text: &str) -> String {
+    text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 fn truncate_words(text: &str, max_chars: usize) -> String {
@@ -370,16 +376,15 @@ fn test_draw(cfg: Config) -> Result<()> {
 /// descenders and pressure tails cannot survive the wipe.
 fn wipe_region(bbox: Rect) -> Rect {
     Rect {
-        left: (bbox.left - 110.0).max(0.0),
-        top: (bbox.top - 130.0).max(0.0),
-        right: (bbox.right + 110.0).min(SCREEN_W),
-        bottom: (bbox.bottom + 130.0).min(SCREEN_H),
+        left: (bbox.left - 150.0).max(0.0),
+        top: (bbox.top - 170.0).max(0.0),
+        right: (bbox.right + 150.0).min(SCREEN_W),
+        bottom: (bbox.bottom + 170.0).min(SCREEN_H),
     }
 }
 
 fn test_erase(cfg: Config) -> Result<()> {
     let mut session = open_session(&cfg)?;
-    let erase_pace = Duration::from_millis(cfg.erase_pace_ms);
     println!(
         "Scribble on the page. {}s after you lift the pen away (or on a corner tap), it will be unwritten with the same left-to-right sweep the diary uses. Ctrl-C to stop.",
         cfg.pause_secs
@@ -400,7 +405,7 @@ fn test_erase(cfg: Config) -> Result<()> {
             wipe.top,
             wipe.bottom
         );
-        session.pen.erase_sweep(wipe, erase_pace)?;
+        session.pen.erase_sweep(wipe)?;
         println!("Gone. Again?");
     }
 }
@@ -409,7 +414,6 @@ fn test_script(cfg: Config, text: &str) -> Result<()> {
     let script = Script::load()?;
     let mut session = open_session(&cfg)?;
     let write_pace = Duration::from_millis(cfg.write_pace_ms);
-    let erase_pace = Duration::from_millis(cfg.erase_pace_ms);
     println!("Writing in 3 seconds…");
     thread::sleep(Duration::from_secs(3));
     let width = SCREEN_W - 2.0 * cfg.margin_px;
@@ -420,7 +424,7 @@ fn test_script(cfg: Config, text: &str) -> Result<()> {
     println!("Lingering {linger:.1}s, then fading…");
     thread::sleep(Duration::from_secs_f32(linger));
     if let Some(bbox) = polylines_bbox(&polys) {
-        session.pen.erase_sweep(wipe_region(bbox), erase_pace)?;
+        session.pen.erase_sweep(wipe_region(bbox))?;
     }
     println!("Faded.");
     Ok(())
