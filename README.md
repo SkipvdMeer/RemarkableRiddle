@@ -9,6 +9,9 @@ of ink), and an answer rises up through the page in joined-up cursive — writte
 hand. It lingers just long enough to be read, then fades the same way it came. The page is
 blank once more, but the diary remembers.
 
+Unlike a certain other enchanted diary, this one is entirely benign and means the writer
+well. No basilisks were involved in its making.
+
 Inspired by [awwaiid/ghostwriter](https://github.com/awwaiid/ghostwriter), rebuilt around the
 disappearing-ink séance and made robust for recent firmware (developed against **3.27.1.0**).
 
@@ -16,52 +19,55 @@ disappearing-ink séance and made robust for recent firmware (developed against 
 
 ## Contents
 
-- [How it works](#how-it-works)
-- [Requirements](#requirements)
-- [Build & deploy](#build--deploy)
-- [API key](#api-key)
-- [Running](#running)
-  - [As a permanent service](#as-a-permanent-service)
-  - [By hand](#by-hand)
+- [How the magic is done](#how-the-magic-is-done)
+- [What you'll need](#what-youll-need)
+- [Binding the diary (build & deploy)](#binding-the-diary-build--deploy)
+- [A word in Parseltongue (the API key)](#a-word-in-parseltongue-the-api-key)
+- [Opening the Chamber (running)](#opening-the-chamber-running)
+  - [A permanent resident of the castle](#a-permanent-resident-of-the-castle)
+  - [By hand, like a common Muggle](#by-hand-like-a-common-muggle)
 - [The séance, step by step](#the-séance-step-by-step)
-- [Configuration reference](#configuration-reference)
-- [Subcommands](#subcommands)
-- [First-time checks](#first-time-checks)
-- [The handwriting](#the-handwriting)
-- [The persona](#the-persona)
-- [Troubleshooting](#troubleshooting)
-- [Architecture & source map](#architecture--source-map)
-- [Security & privacy notes](#security--privacy-notes)
+- [Tuning the enchantments (configuration)](#tuning-the-enchantments-configuration)
+- [Spells (subcommands)](#spells-subcommands)
+- [O.W.L. examinations (first-time checks)](#owl-examinations-first-time-checks)
+- [The hand that writes](#the-hand-that-writes)
+- [The memory inside](#the-memory-inside)
+- [Defence Against the Dark Arts (troubleshooting)](#defence-against-the-dark-arts-troubleshooting)
+- [The Marauder's Map (architecture)](#the-marauders-map-architecture)
+- [A warning from the Ministry (security & privacy)](#a-warning-from-the-ministry-security--privacy)
 
 ---
 
-## How it works
+## How the magic is done
 
 Everything happens through the Linux input layer — no framebuffer hacks, no kernel modules,
-no xochitl patching, which is what usually breaks on firmware updates:
+no xochitl patching, which is the kind of dark magic that usually breaks on firmware
+updates:
 
-- **Capture** — your pen strokes are recorded straight from the Wacom digitizer
-  (`/dev/input/event*`, discovered by device name). Even single-point taps (i-dots,
-  periods) are kept.
+- **Legilimency (capture)** — your pen strokes are recorded straight from the Wacom
+  digitizer (`/dev/input/event*`, discovered by device name). Even single-point taps
+  (i-dots, periods) are kept; the diary misses nothing.
 - **The vanishing** — an eraser tool (`BTN_TOOL_RUBBER`, the same thing the Marker Plus
-  eraser end sends) is injected as one continuous serpentine stroke: a full-height column
+  eraser end sends) is conjured as one continuous serpentine stroke: a full-height column
   gliding left to right across a padded band around your writing. The wipe front moves at a
-  constant speed regardless of how tall the text block is. Real ink, really gone.
+  constant speed regardless of how tall the text block is. Real ink, really gone —
+  *Evanesco*, but for handwriting.
 - **The mind** — the recorded strokes are rendered to a PNG in-process (no framebuffer
-  access needed) and sent to an OpenAI vision model wearing a diary persona. The session
-  transcript is kept in memory, so the diary remembers the conversation until it closes.
+  access needed) and sent to an OpenAI vision model wearing the diary's persona. The
+  session transcript is kept in memory, so the diary remembers the conversation until it
+  closes.
 - **The hand** — the reply is turned into pen paths using a Hershey single-stroke script
   font, with consecutive letters chained into continuous cursive runs, and injected as pen
-  events: genuinely *written*, word by word, as notebook ink.
+  events: genuinely *written*, word by word, as notebook ink. A quill moved by no one.
 
-## Requirements
+## What you'll need
 
 - A **reMarkable 2** on recent firmware (3.x), awake, unlocked, connected to Wi-Fi.
 - SSH access to the tablet (see below), same network as your computer for Wi-Fi deploys.
 - An **OpenAI API key** with access to a vision model (`gpt-4o-mini` by default).
-- Build host: anything Rust runs on; the instructions below are for macOS.
+- Build host: anything Rust runs on; the incantations below are for macOS.
 
-## Build & deploy
+## Binding the diary (build & deploy)
 
 ```sh
 brew install rustup zig cargo-zigbuild
@@ -70,8 +76,8 @@ rustup target add armv7-unknown-linux-musleabihf
 ./deploy.sh                    # USB (10.11.99.1), or: ./deploy.sh root@<tablet-ip>
 ```
 
-The SSH password is on the tablet under **Settings → Help → Copyrights and licenses**
-(bottom of the page, "GPLv3 Compliance").
+The SSH password hides on the tablet under **Settings → Help → Copyrights and licenses**
+(bottom of the page, "GPLv3 Compliance") — the wizarding world's worst-kept secret.
 
 `deploy.sh` cross-compiles a static ARM binary (zig as the linker — no toolchain images
 needed), copies it to `/home/root/riddle/`, and installs `riddle.toml` and `.env` **only if
@@ -80,25 +86,26 @@ the tablet doesn't have them yet** — your on-device tuning and key are never o
 > If riddle is installed as a systemd service (see below), stop it before copying a new
 > binary over an old one: `systemctl stop riddle`, deploy, `systemctl start riddle`.
 
-## API key
+## A word in Parseltongue (the API key)
 
-Copy `.env.example` to `.env` and put your OpenAI key in it:
+Copy `.env.example` to `.env` and whisper your OpenAI key into it:
 
 ```sh
 cp .env.example .env           # then edit: OPENAI_API_KEY=sk-...
 ```
 
-`.env` is **gitignored** — it never enters version control. `deploy.sh` installs it on the
-tablet (first deploy only), where the systemd service loads it via `EnvironmentFile`. For
-manual runs, `export $(cat .env)` first. Never put the key in `riddle.toml`; that file is
-committed as documentation.
+`.env` is **gitignored** — it never enters version control, the way a secret should never
+enter a school governors' meeting. `deploy.sh` installs it on the tablet (first deploy
+only), where the systemd service loads it via `EnvironmentFile`. For manual runs,
+`export $(cat .env)` first. Never put the key in `riddle.toml`; that file is committed as
+documentation.
 
-## Running
+## Opening the Chamber (running)
 
-### As a permanent service
+### A permanent resident of the castle
 
-The diary can live in the tablet permanently — always listening, starting at boot,
-restarting itself if it crashes:
+The diary can live in the tablet permanently — always listening, waking at boot, rising
+again within seconds if anything strikes it down:
 
 ```ini
 # /etc/systemd/system/riddle.service
@@ -124,14 +131,17 @@ systemctl status riddle          # is it listening?
 journalctl -u riddle -f          # watch the séance log live
 ```
 
-**Never run `./riddle` by hand while the service is active** — two instances inject
-interleaved pen events and everything breaks in confusing ways. `systemctl stop riddle`
-first, then experiment, then `systemctl start riddle`.
+**Never run `./riddle` by hand while the service is active.** Two instances inject
+interleaved pen events, and the result is the input-layer equivalent of two wizards
+casting at the same cauldron — everything breaks in confusing ways. `systemctl stop
+riddle` first, then experiment, then `systemctl start riddle`.
 
 Firmware updates replace the system partition: the binary, config, and `.env` survive
-(they live in `/home/root`), but the service file must be reinstalled afterwards.
+(they live in `/home/root`), but the service file must be reinstalled afterwards. The
+diary, like its namesake, is annoyingly hard to destroy permanently — but the Ministry
+does occasionally rearrange the castle.
 
-### By hand
+### By hand, like a common Muggle
 
 On the tablet, with a notebook page open and a pen tool selected:
 
@@ -143,19 +153,22 @@ export $(cat .env)
 ```
 
 Write something. Lift the pen away. After the configured pause the séance begins. A finger
-tap in the top-right corner sends immediately. `Ctrl-C` closes the diary.
+tap in the top-right corner sends immediately. `Ctrl-C` closes the diary — no basilisk
+fang required.
 
 ## The séance, step by step
 
 1. You write. Strokes are captured; the diary waits until the pen has been fully away from
    the screen (out of hover range) for `pause_secs` — or a corner tap forces it.
 2. Only notebooks inside the `allowed_folder` xochitl folder are animated; ink written
-   anywhere else is noted in the log and politely ignored.
+   anywhere else is noted in the log and politely ignored. The diary does not answer to
+   just anyone.
 3. The captured page is rendered to a PNG and the OpenAI request departs **immediately**,
-   in a worker thread — the model thinks while the ink vanishes.
+   in a worker thread — the diary thinks while the ink sinks.
 4. The curtain wipe erases a band reaching well past your writing on all four sides
    (`wipe_region` in `src/main.rs`), so ascenders, descenders and stray dots go with it.
-5. If the answer isn't back yet, up to three thinking-dots appear, one per 1.2 s.
+5. If the answer isn't back yet, up to three thinking-dots appear, one per 1.2 s — the
+   diary, considering.
 6. The reply is written in cursive where your words used to be, word-wrapped to the page
    margins, shifted up if it would run off the bottom.
 7. It lingers `linger_base_secs` (+ `linger_per_char_secs` per character), then fades
@@ -163,9 +176,9 @@ tap in the top-right corner sends immediately. `Ctrl-C` closes the diary.
    listens again.
 
 If the API call fails (no Wi-Fi, quota), the diary writes a fallback line instead and the
-failed exchange is not added to the transcript.
+failed exchange is not added to the transcript. Even enchanted objects need the network.
 
-## Configuration reference
+## Tuning the enchantments (configuration)
 
 Everything lives in [`riddle.toml`](riddle.toml) next to the binary (the tablet's copy is
 authoritative at runtime and is never overwritten by deploys). All keys are optional;
@@ -198,9 +211,9 @@ defaults shown. After changing it under the service: `systemctl restart riddle`.
 | `pen_device` / `touch_device` | *(auto)* | e.g. `/dev/input/event1`; discovered by name if unset. |
 | `touch_invert_x/y` | `false` / `true` | Touch panel axis orientation (rM2: y is bottom-up). |
 
-## Subcommands
+## Spells (subcommands)
 
-| Command | What it does |
+| Incantation | Effect |
 |---|---|
 | `./riddle` | The full experience: listen, vanish, answer, fade. Repeats forever. |
 | `./riddle test-draw` | Draws an orientation test pattern (a capital **F** and *"the riddle"*). |
@@ -211,7 +224,7 @@ defaults shown. After changing it under the service: `systemctl restart riddle`.
 | `./riddle debug-input` | Raw pen/touch event dump, for calibrating a new firmware. |
 | `cargo run -- preview "text" --out p.png` | **Host-side**: renders the handwriting to a PNG. No tablet needed. |
 
-## First-time checks
+## O.W.L. examinations (first-time checks)
 
 In this order — each proves one layer before the next depends on it:
 
@@ -224,7 +237,7 @@ In this order — each proves one layer before the next depends on it:
    writing-tool icon and then the Ballpoint entry with the pen, put the two printed
    coordinate pairs in `riddle.toml`, and set `force_pen_tool = true`.
 
-## The handwriting
+## The hand that writes
 
 The diary writes with a **Hershey single-stroke font** — pen *paths*, not outlines, which
 is exactly what a moving pen tip produces. The active face is *Script Simplex*
@@ -237,33 +250,36 @@ writes much faster — pen lifts between letters are the slowest part of writing
 commas and other specks stay separate taps. Text is folded to ASCII first (é→e, ü→u,
 "…"→"...") because the quill writes plain ASCII most beautifully.
 
-## The persona
+## The memory inside
 
 The diary's voice lives in [`prompts/diary.txt`](prompts/diary.txt): courteous, composed,
-old-fashioned, benign. It answers **in the language you wrote** (Dutch stays Dutch), keeps
-replies to ~35 words, never breaks character, and returns strict JSON
-(`{"transcription", "reply"}`) — which the code parses defensively, salvaging the reply
-even from truncated or fenced JSON rather than ever writing raw braces onto the page.
+old-fashioned, quietly mysterious — and, unlike the original, genuinely benign. It answers
+**in the language you wrote** (Dutch stays Dutch), keeps replies to ~35 words, never breaks
+character, and returns strict JSON (`{"transcription", "reply"}`) — which the code parses
+defensively, salvaging the reply even from truncated or fenced JSON rather than ever
+writing raw braces onto the page in ink.
 
 The prompt is baked into the binary; set `prompt_path` in `riddle.toml` to iterate on a
 copy on the tablet without rebuilding.
 
-## Troubleshooting
+## Defence Against the Dark Arts (troubleshooting)
 
-| Symptom | Likely cause & fix |
+| Symptom | Likely cause & counter-curse |
 |---|---|
 | Nothing happens when you write | Is the notebook inside the **Riddle** folder (`allowed_folder`)? The journal says `ink noticed, but…` when the guard rejects. Also: is the service actually running (`systemctl status riddle`)? |
 | Nothing happens in a brand-new notebook | xochitl hasn't stamped its metadata yet. Write another line or flip the page once; reopening the notebook also fixes it. |
-| Everything acts weird at once | Two riddle instances are injecting simultaneously. `pgrep riddle` should show exactly one PID. `systemctl stop riddle` + `killall riddle`, then start one. |
+| Everything acts cursed at once | Two riddle instances are injecting simultaneously. `pgrep riddle` should show exactly one PID. `systemctl stop riddle` + `killall riddle`, then start one. |
 | Replies written with the wrong tool / in highlighter | `force_pen_tool` taps landing on the wrong buttons — run `./riddle calibrate` and fix the coordinates, or set `force_pen_tool = false` and keep the ballpoint selected yourself. |
-| Erase visibly runs but ink comes back | A stray toolbar tap hit **undo**. Same fix as above. |
+| Erase visibly runs but ink comes back | A stray toolbar tap hit **undo** — accidental necromancy. Same fix as above. |
 | Specks survive the wipe | Grow the paddings in `wipe_region` (`src/main.rs`) or tighten `COLUMN_SPACING_PX` in `src/pen.rs`. |
 | Letters weld together into a scrawl | Pen lifts are being merged — raise `SETTLE_LIFT`/`SETTLE_HOVER` in `src/pen.rs` (they're at the ~1-frame floor). |
 | `test-draw` comes out rotated/mirrored | Flip the transform in `src/geom.rs`. |
 | Service gone after a firmware update | Reinstall `/etc/systemd/system/riddle.service` (binary/config/`.env` survive in `/home/root`). |
 | "text file busy" when copying the binary | The old binary is running. Stop the service first, or copy to a temp name and `mv` over it. |
 
-## Architecture & source map
+## The Marauder's Map (architecture)
+
+*I solemnly swear that I am up to no good:*
 
 ```
 src/
@@ -282,7 +298,7 @@ assets/        Hershey JHF fonts (scripts = active, scriptc = alternative)
 prompts/       the diary persona (baked in at compile time)
 ```
 
-Design constraints worth knowing before hacking:
+Constraints worth knowing before hacking (mischief managed the hard way):
 
 - xochitl consumes pen input at display-frame granularity (~60 Hz): tool changes,
   touch-downs and lifts need >1 frame of settle time or they merge (`SETTLE_*`).
@@ -292,12 +308,13 @@ Design constraints worth knowing before hacking:
   (`FRONT_PX_PER_SEC`); don't reintroduce fixed per-point pacing there.
 - Injected events echo back to our own capture reader; the `injecting` flag filters them.
 
-## Security & privacy notes
+## A warning from the Ministry (security & privacy)
 
 - The API key lives in `.env` (gitignored) on your machine and `chmod 600` on the tablet.
   Don't commit it; rotate it if it ever leaks into a terminal log.
 - Handwriting images and the conversation go to OpenAI — don't write secrets to the diary
-  that you wouldn't put in a prompt.
+  that you wouldn't put in a prompt. Remember what happened to the last person who poured
+  their soul into this thing.
 - Conversations live in memory only and vanish when the diary closes; nothing persistent
   is written to the tablet besides the binary, config, and `.env`.
 - Ink you erase *by hand* mid-message isn't tracked; the vanishing may miss those bits.
